@@ -34,8 +34,11 @@ import UIKit
  Should have custom REPL command to output a screenshot of the canvas
  to the replete table.
  
- Alternatively, should make it so whenever we request the js/canvas
+ Alternatively, could make it so whenever we request the js/canvas
  object from replete, it returns a screenshot.
+ 
+ Just do a quick equality check on any output expression:
+ evaluate against the canvas element.
  
  Double-tap gesture to enter fullscreen mode.
  Show banner indicating gesture to escape fullscreen, e.g.
@@ -44,6 +47,8 @@ import UIKit
  Fullscreen mode:
  - Make canvas view first responder
  - Allow user interaction
+ - Alternative escape triggered by keyboard shortcuts with UIKeyCommand:
+ https://developer.apple.com/reference/uikit/uikeycommand
  
  Could consider alternative mode with transparent keyboard and repl output
  floating in front of canvas. Have seen this used to delightful effect
@@ -101,6 +106,7 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
     // pixel-wise, just scaled down initially?
     var initialSize: CGSize = CGSize(width: 80, height: 120)
     let canvasMargin: CGFloat = 20
+    var isCanvasFullscreen: Bool = false
     
     
     func calculateViewFrame() -> CGRect {
@@ -120,9 +126,13 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
     }
     
     func updateCanvasLabel() {
-        let w = Int(canvasView.frame.size.width)
-        let h = Int(canvasView.frame.size.height)
-        canvasSizeLabel.text = "\(w)x\(h)"
+        if (isCanvasFullscreen){
+            canvasSizeLabel.text = "Long press with 4 fingers to exit fullscreen."
+        } else {
+            let w = Int(canvasView.frame.size.width)
+            let h = Int(canvasView.frame.size.height)
+            canvasSizeLabel.text = "\(w)x\(h)"
+        }
     }
     
     func showPlayPauseButton(){
@@ -173,9 +183,8 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
         let canvasFrame = CGRect(origin: CGPoint.zero, size: initialSize)
 
         canvasView = EJJavaScriptView(frame: canvasFrame, appFolder: "out/")
-        // initially disable interaction
+        // initially disable interaction until we enter fullscreen
         canvasView.isUserInteractionEnabled = false
-        canvasView.translatesAutoresizingMaskIntoConstraints = true
         
         let panR = UIPanGestureRecognizer.init(target: self, action: #selector(handlePan))
         panR.cancelsTouchesInView = true
@@ -190,9 +199,22 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
         pinchR.cancelsTouchesInView = true
         pinchR.delegate = self
         
+        let doubleTapR = UITapGestureRecognizer.init(target: self, action: #selector(handleDoubleTap))
+        doubleTapR.numberOfTapsRequired = 2
+        doubleTapR.cancelsTouchesInView = false
+        doubleTapR.delegate = self
+        
+        let fourFingerPressR = UILongPressGestureRecognizer.init(target: self, action: #selector(handleFourFingerPress))
+        fourFingerPressR.numberOfTouchesRequired = 4
+        fourFingerPressR.minimumPressDuration = 0.5
+        fourFingerPressR.cancelsTouchesInView = false
+        fourFingerPressR.delegate = self
+        
         self.view.addGestureRecognizer(panR)
         self.view.addGestureRecognizer(tapR)
         self.view.addGestureRecognizer(pinchR)
+        self.view.addGestureRecognizer(doubleTapR)
+        self.view.addGestureRecognizer(fourFingerPressR)
         
         self.view.addSubview(canvasView)
         
@@ -258,24 +280,41 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
         playPauseButton.center = self.canvasView.center
     }
     
+    override var canBecomeFirstResponder: Bool {
+        return true
+    }
+    
+    override var keyCommands: [UIKeyCommand]? {
+        return [
+            UIKeyCommand(input: UIKeyInputEscape, modifierFlags: .shift,
+                         action: #selector(exitFullscreen),
+                         discoverabilityTitle: "Exit Fullscreen Canvas")
+        ]
+    }
+    
+    func resetSmallCanvasFrame(){
+        // resets the canvas view frame to small size
+        // done when rotating screen or when exiting fullscreen
+        let rotatedFrame = self.calculateViewFrame()
+        
+        let canvasFrame = CGRect(origin: CGPoint.zero, size: rotatedFrame.size)
+        self.canvasView.frame = canvasFrame
+        self.resizeCanvasContext(newCanvasFrame: canvasFrame)
+        
+        self.view.frame = rotatedFrame
+        self.view.setNeedsLayout()
+        self.updateCanvasLabel()
+        
+        print("Transitioned view frame...")
+    }
+    
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
         
         coordinator.animate(alongsideTransition: nil, completion: {
             _ in
             
-            let rotatedFrame = self.calculateViewFrame()
-            
-            let oldFrame = self.canvasView.frame
-            let canvasFrame = CGRect(origin: oldFrame.origin, size: rotatedFrame.size)
-            self.canvasView.frame = canvasFrame
-            self.resizeCanvasContext(newCanvasFrame: canvasFrame)
-            
-            self.view.frame = rotatedFrame
-            self.view.setNeedsLayout()
-            self.updateCanvasLabel()
-            
-            print("Transitioned view frame...")
+            self.resetSmallCanvasFrame()
         })
     }
     
@@ -357,95 +396,135 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
         showPlayPauseButton()
     }
     
-    @IBAction func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
-        handleShadow(gestureRecognizer: gestureRecognizer)
-        handleCanvasSizeLabel(gestureRecognizer: gestureRecognizer)
-        handlePlayPauseButton(gestureRecognizer: gestureRecognizer)
+    func makeCanvasFullscreen(){
+        let fullscreenBounds = UIScreen.main.bounds
+        self.view.frame = fullscreenBounds
+        self.canvasView.frame = fullscreenBounds
+        self.resizeCanvasContext(newCanvasFrame: fullscreenBounds)
+        self.view.setNeedsLayout()
+        self.becomeFirstResponder()
+        self.canvasView.isUserInteractionEnabled = true
+        isCanvasFullscreen = true
+        self.setNeedsStatusBarAppearanceUpdate()
+        self.updateCanvasLabel()
+    }
+    
+    @IBAction func exitFullscreen(sender: UIKeyCommand?) {
+        self.resignFirstResponder()
+        self.canvasView.isUserInteractionEnabled = false
+        isCanvasFullscreen = false
+        resetSmallCanvasFrame()
+        self.setNeedsStatusBarAppearanceUpdate()
+    }
+    
+    @IBAction func handleFourFingerPress(_ gestureRecognizer: UIGestureRecognizer) {
+        if (isCanvasFullscreen){
+            exitFullscreen(sender: nil)
+        }
+    }
+    
+    @IBAction func handleDoubleTap(_ gestureRecognizer: UIGestureRecognizer) {
+        if (!isCanvasFullscreen){
+            makeCanvasFullscreen()
+        }
+    }
+    
+    @IBAction func handleTap(_ gestureRecognizer: UIGestureRecognizer) {
+        if !isCanvasFullscreen {
+            handleShadow(gestureRecognizer: gestureRecognizer)
+            handleCanvasSizeLabel(gestureRecognizer: gestureRecognizer)
+            handlePlayPauseButton(gestureRecognizer: gestureRecognizer)
+        }
     }
     
     func handleTranslate(gestureRecognizer: UIGestureRecognizer) {
-        if gestureRecognizer.state == .began {
-            lastPoint = gestureRecognizer.location(in: self.view)
-        }
-        if gestureRecognizer.state == .changed {
-            let location = gestureRecognizer.location(in: self.view)
-            // note: 'view' is optional and need to be unwrapped
-            let center = self.view.center
-            let newCenter = CGPoint(
-                x: center.x - (lastPoint.x - location.x),
-                y: center.y - (lastPoint.y - location.y)
-            )
-            
-            self.view.center = newCenter
-            lastPoint = gestureRecognizer.location(in: self.view)
+        if !isCanvasFullscreen {
+            if gestureRecognizer.state == .began {
+                lastPoint = gestureRecognizer.location(in: self.view)
+            }
+            if gestureRecognizer.state == .changed {
+                let location = gestureRecognizer.location(in: self.view)
+                // note: 'view' is optional and need to be unwrapped
+                let center = self.view.center
+                let newCenter = CGPoint(
+                    x: center.x - (lastPoint.x - location.x),
+                    y: center.y - (lastPoint.y - location.y)
+                )
+                
+                self.view.center = newCenter
+                lastPoint = gestureRecognizer.location(in: self.view)
+            }
         }
     }
 
     
     @IBAction func handlePan(_ gestureRecognizer: UIPanGestureRecognizer) {
-        handleTranslate(gestureRecognizer: gestureRecognizer)
-        handleShadow(gestureRecognizer: gestureRecognizer)
-        handleCanvasSizeLabel(gestureRecognizer: gestureRecognizer)
-        handlePlayPauseButton(gestureRecognizer: gestureRecognizer)
-
+        if !isCanvasFullscreen {
+            handleTranslate(gestureRecognizer: gestureRecognizer)
+            handleShadow(gestureRecognizer: gestureRecognizer)
+            handleCanvasSizeLabel(gestureRecognizer: gestureRecognizer)
+            handlePlayPauseButton(gestureRecognizer: gestureRecognizer)
+        }
     }
     
     @IBAction func handlePinch(_ gestureRecognizer: UIPinchGestureRecognizer) {
-        handleShadow(gestureRecognizer: gestureRecognizer)
-        handlePlayPauseButton(gestureRecognizer: gestureRecognizer)
-        
-        if gestureRecognizer.state == .began {
-            lastScale = gestureRecognizer.scale
-        }
-        
-        if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
-            let currentScale = CGFloat(self.view.frame.size.width / initialSize.width)
-            let maxScale = CGFloat(3.0)
-            let minScale = CGFloat(1.0)
+        if !isCanvasFullscreen {
+            handleShadow(gestureRecognizer: gestureRecognizer)
+            handlePlayPauseButton(gestureRecognizer: gestureRecognizer)
             
-            let initialScale = 1.0 - (lastScale - gestureRecognizer.scale)
-            let newScale = max(
-                min(initialScale, maxScale/currentScale),
-                minScale/currentScale
-            )
+            if gestureRecognizer.state == .began {
+                lastScale = gestureRecognizer.scale
+            }
             
-            let newBounds = self.view.bounds.applying(
-                CGAffineTransform.init(scaleX: newScale, y: newScale)
-            )
-            let roundedBounds = CGRect(
-                origin: newBounds.origin,
-                size: CGSize(
-                    width: round(newBounds.width),
-                    height: round(newBounds.height)
+            if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
+                let currentScale = CGFloat(self.view.frame.size.width / initialSize.width)
+                let maxScale = CGFloat(3.0)
+                let minScale = CGFloat(1.0)
+                
+                let initialScale = 1.0 - (lastScale - gestureRecognizer.scale)
+                let newScale = max(
+                    min(initialScale, maxScale/currentScale),
+                    minScale/currentScale
                 )
+                
+                let newBounds = self.view.bounds.applying(
+                    CGAffineTransform.init(scaleX: newScale, y: newScale)
+                )
+                let roundedBounds = CGRect(
+                    origin: newBounds.origin,
+                    size: CGSize(
+                        width: round(newBounds.width),
+                        height: round(newBounds.height)
+                    )
+                )
+                
+                self.view.bounds = roundedBounds
+                lastScale = newScale
+            }
+            
+            let oldFrame = canvasView.frame
+            let newCanvasFrame = CGRect(
+                origin: oldFrame.origin,
+                size: self.view.bounds.size
             )
             
-            self.view.bounds = roundedBounds
-            lastScale = newScale
+            // HMM, this does not actually make the js/window or js/canvas
+            // sizes change... not quite sure how this works.
+            // maybe we need to trigger a resize event on the js context?
+            if gestureRecognizer.state == .changed {
+                self.canvasView.isPaused = true
+                self.canvasView.frame = newCanvasFrame
+                resizeCanvasContext(newCanvasFrame: newCanvasFrame)
+            }
+            
+            if gestureRecognizer.state == .ended {
+                self.canvasView.isPaused = false
+            }
+            
+            updateCanvasLabel()
+            setPlayPauseImage()
+            handleCanvasSizeLabel(gestureRecognizer: gestureRecognizer)
         }
-        
-        let oldFrame = canvasView.frame
-        let newCanvasFrame = CGRect(
-            origin: oldFrame.origin,
-            size: self.view.bounds.size
-        )
-        
-        // HMM, this does not actually make the js/window or js/canvas
-        // sizes change... not quite sure how this works.
-        // maybe we need to trigger a resize event on the js context?
-        if gestureRecognizer.state == .changed {
-            self.canvasView.isPaused = true
-            self.canvasView.frame = newCanvasFrame
-            resizeCanvasContext(newCanvasFrame: newCanvasFrame)
-        }
-        
-        if gestureRecognizer.state == .ended {
-            self.canvasView.isPaused = false
-        }
-        
-        updateCanvasLabel()
-        setPlayPauseImage()
-        handleCanvasSizeLabel(gestureRecognizer: gestureRecognizer)
     }
     
 

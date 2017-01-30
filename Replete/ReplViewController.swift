@@ -77,6 +77,10 @@ class ReplViewController: UIViewController, UITableViewDataSource, UITableViewDe
         self.currentKeyboardHeight = 0.0;
     }
     
+    override var prefersStatusBarHidden: Bool {
+        return self.canvas.isCanvasFullscreen
+    }
+    
     override var canBecomeFirstResponder : Bool {
         return true
     }
@@ -174,8 +178,16 @@ class ReplViewController: UIViewController, UITableViewDataSource, UITableViewDe
         if true {
             //textView.text = chat.draft
             //chat.draft = ""
-            textViewDidChange(textView)
-            textView.becomeFirstResponder()
+            if (!canvas.isCanvasFullscreen){
+                toolBar.isHidden = false
+                textView.isUserInteractionEnabled = true
+                textViewDidChange(textView)
+                textView.becomeFirstResponder()
+            } else {
+                toolBar.isHidden = true
+                textView.resignFirstResponder()
+                textView.isUserInteractionEnabled = false
+            }
         }
     }
     
