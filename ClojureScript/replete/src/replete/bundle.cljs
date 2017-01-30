@@ -1,6 +1,8 @@
 ;; A namespace used to cause additional libs to be included in out for bundling.
 (ns replete.bundle
   (:require
+    bocko.core
+    bocko-canvas.core
     clojure.core.reducers
     clojure.data
     clojure.test.check

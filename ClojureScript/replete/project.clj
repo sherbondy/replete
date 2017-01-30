@@ -1,5 +1,7 @@
 (defproject replete "0.1.0"
   :dependencies [[andare "0.4.0"]                           ; Update in script/build also
+                 [bocko "1.0.0"]
+                 [bocko-canvas "1.0.0"]
                  [cljsjs/parinfer "1.8.1-0"]
                  [com.cognitect/transit-clj "0.8.275"]
                  [com.cognitect/transit-cljs "0.8.220"]
