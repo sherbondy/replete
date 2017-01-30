@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AA51930D1E3FF9CC00C00AD0 /* example in Resources */ = {isa = PBXBuildFile; fileRef = AA51930C1E3FF9CC00C00AD0 /* example */; };
 		AAB9E16E1E3DBEDB00B54741 /* CanvasViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB9E16D1E3DBEDB00B54741 /* CanvasViewController.swift */; };
 		D337F432BB780C5200016AB5 /* libPods-Replete.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8079AE72457AB83298C66DE8 /* libPods-Replete.a */; };
 		ED06DC271B3F62E800100331 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = ED06DC261B3F62E800100331 /* main.m */; };
@@ -35,6 +36,7 @@
 /* Begin PBXFileReference section */
 		8079AE72457AB83298C66DE8 /* libPods-Replete.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Replete.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		862FF9D73679E32EBC06CE75 /* Pods-Replete.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Replete.debug.xcconfig"; path = "Pods/Target Support Files/Pods-Replete/Pods-Replete.debug.xcconfig"; sourceTree = "<group>"; };
+		AA51930C1E3FF9CC00C00AD0 /* example */ = {isa = PBXFileReference; lastKnownFileType = folder; path = example; sourceTree = "<group>"; };
 		AAB9E16D1E3DBEDB00B54741 /* CanvasViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CanvasViewController.swift; sourceTree = "<group>"; };
 		D3F59975D0B14E3EFBE74C07 /* Pods-Replete.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Replete.release.xcconfig"; path = "Pods/Target Support Files/Pods-Replete/Pods-Replete.release.xcconfig"; sourceTree = "<group>"; };
 		ED06DC211B3F62E800100331 /* Replete.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Replete.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -106,6 +108,7 @@
 		ED06DC231B3F62E800100331 /* Replete */ = {
 			isa = PBXGroup;
 			children = (
+				AA51930C1E3FF9CC00C00AD0 /* example */,
 				EDE7D6CA1B3F79AB00710B50 /* out */,
 				ED06DC281B3F62E800100331 /* AppDelegate.h */,
 				ED06DC291B3F62E800100331 /* AppDelegate.m */,
@@ -247,6 +250,7 @@
 			files = (
 				ED06DC301B3F62E800100331 /* Main.storyboard in Resources */,
 				ED06DC351B3F62E800100331 /* LaunchScreen.xib in Resources */,
+				AA51930D1E3FF9CC00C00AD0 /* example in Resources */,
 				ED06DC321B3F62E800100331 /* Images.xcassets in Resources */,
 				EDE7D6CB1B3F79AB00710B50 /* out in Resources */,
 			);

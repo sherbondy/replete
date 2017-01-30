@@ -247,14 +247,13 @@
             }
 
         } else {
-
-            UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:@"Error accepting file"
-                                                                message:[err localizedDescription]
-                                                               delegate:self
-                                                      cancelButtonTitle:@"Cancel"
-                                                      otherButtonTitles:nil];
-            [alertView show];
-
+            
+            UIAlertController *alertController = [UIAlertController alertControllerWithTitle:@"Error accepting file"
+                                                                                     message:[err localizedDescription]
+                                                                              preferredStyle:UIAlertControllerStyleAlert];
+            [alertController addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+            UIViewController* rootVC = UIApplication.sharedApplication.keyWindow.rootViewController;
+            [rootVC presentViewController:alertController animated:YES completion:nil];
         }
     }
     return YES;
@@ -269,7 +268,7 @@
 {
     if (self.setWidthFn) {
         
-        int width = ([[UIScreen mainScreen] applicationFrame].size.width - 10)/9;
+        int width = (UIScreen.mainScreen.bounds.size.width - 10)/9;
         
         [self.setWidthFn callWithArguments:@[@(width)]];
         

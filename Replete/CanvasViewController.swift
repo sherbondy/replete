@@ -182,7 +182,7 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
         
         let canvasFrame = CGRect(origin: CGPoint.zero, size: initialSize)
 
-        canvasView = EJJavaScriptView(frame: canvasFrame, appFolder: "out/")
+        canvasView = EJJavaScriptView(frame: canvasFrame, appFolder: "example/")
         // initially disable interaction until we enter fullscreen
         canvasView.isUserInteractionEnabled = false
         
