@@ -373,7 +373,6 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
     }
     
     @IBAction func handlePinch(_ gestureRecognizer: UIPinchGestureRecognizer) {
-        handleTranslate(gestureRecognizer: gestureRecognizer)
         handleShadow(gestureRecognizer: gestureRecognizer)
         handlePlayPauseButton(gestureRecognizer: gestureRecognizer)
         
