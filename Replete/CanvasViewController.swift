@@ -58,8 +58,8 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
     func calculateViewFrame() -> CGRect {
         let screenSize = UIScreen.main.bounds.size
         initialSize = CGSize(
-            width: floor(screenSize.width/4),
-            height: floor(screenSize.height/4)
+            width: round(screenSize.width/4),
+            height: round(screenSize.height/4)
         )
         
         let viewFrame = CGRect(
@@ -147,8 +147,8 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
     
     func resizeCanvasContext(newCanvasFrame: CGRect) {
         let scale = UIScreen.main.scale
-        self.canvasView.screenRenderingContext.width = Int16(newCanvasFrame.size.width*scale)
-        self.canvasView.screenRenderingContext.height = Int16(newCanvasFrame.size.height*scale)
+        self.canvasView.screenRenderingContext.width = Int16(round(newCanvasFrame.size.width*scale))
+        self.canvasView.screenRenderingContext.height = Int16(round(newCanvasFrame.size.height*scale))
         (self.canvasView.screenRenderingContext as! EJPresentable).style = newCanvasFrame
     }
     
@@ -265,15 +265,15 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
             let newBounds = self.view.bounds.applying(
                 CGAffineTransform.init(scaleX: newScale, y: newScale)
             )
-            let flooredBounds = CGRect(
+            let roundedBounds = CGRect(
                 origin: newBounds.origin,
                 size: CGSize(
-                    width: floor(newBounds.width),
-                    height: floor(newBounds.height)
+                    width: round(newBounds.width),
+                    height: round(newBounds.height)
                 )
             )
             
-            self.view.bounds = flooredBounds
+            self.view.bounds = roundedBounds
             lastScale = newScale
             
             self.canvasSizeLabel.alpha = 1.0
