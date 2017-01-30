@@ -103,7 +103,12 @@ class ReplViewController: UIViewController, UITableViewDataSource, UITableViewDe
         tableView.separatorStyle = .none
         view.addSubview(tableView)
         
+        // we use view controller containment to make things modular:
+        // otation events and such will be automatically
+        // forwarded to (and managed inside of) the CanvasViewController
+        self.addChildViewController(self.canvas)
         view.addSubview(self.canvas.view)
+        self.canvas.didMove(toParentViewController: self)
         
         let notificationCenter = NotificationCenter.default
         notificationCenter.addObserver(self, selector: #selector(keyboardWillShow(_:)), name: NSNotification.Name.UIKeyboardWillShow, object: nil)

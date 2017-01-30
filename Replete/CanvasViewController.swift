@@ -9,38 +9,64 @@
 import UIKit
 
 /* 
- Idea is to add a play/pause button and a "fullscreen" button
+ Idea is to add a play/pause button, and a "fullscreen" button
  would enable user interaction on the javascript context with
  some predefined gesture to exit out of fullscreen.
  
  Also want to refine gestures so that there's acceleration, bounce
  back when going past the edge, hiding when you deliberately flick
  pas edge, toggleable visibility, adjustable size/aspect ratio.
+ 
+ Frame dimensions should be dynamic based on device size.
+ - for iPod/iPhone: default to 1/4 of screen dimensions (portrait)
+ 
+ - for iPad: default to 1/4 of portrait dimensions, even in landscape:
+   Want to make ideal for split-screen exploration in landscape
+ 
+ 
+ Incrementally query and display canvas dimensions from context?
+ Allow explicit customization/override of canvas dimension(s), maybe
+ changing border color to designate that dimension(s) are locked down.
+ 
+ Also want to allow possibility for rendering exclusively
+ to external display in airplay mode by default?
+ 
  */
 
 class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
     
     var canvasView: EJJavaScriptView!
-    var lastPoint: CGPoint = CGPoint(x: 0, y: 0)
+    var lastPoint: CGPoint = CGPoint.zero
     var lastScale: CGFloat = 0.0
     // maybe the canvas should actually be the full window height
     // pixel-wise, just scaled down initially?
-    var initialSize: CGSize = CGSize(width: 60, height: 80)
+    var initialSize: CGSize = CGSize(width: 80, height: 120)
+    let canvasMargin: CGFloat = 20
+    
+    
+    func calculateViewFrame() -> CGRect {
+        let screenSize = UIScreen.main.bounds.size
+        initialSize = CGSize(width: screenSize.width/4, height: screenSize.height/4)
+        
+        let viewFrame = CGRect(
+            x: screenSize.width - initialSize.width - canvasMargin,
+            y: canvasMargin,
+            width: initialSize.width, height: initialSize.height
+        )
+        
+        return viewFrame
+    }
+    
 
     override func loadView() {
         super.loadView()
 
         // Do any additional setup after loading the view.
-        
-        let viewFrame = CGRect(
-            x: view.bounds.width - 80, y: 20,
-            width: initialSize.width, height: initialSize.height
-        )
-        
-        self.view = UIView.init(frame: viewFrame)
+        self.view = UIView()
         self.view.backgroundColor = UIColor.gray
+        self.view.frame = calculateViewFrame()
         
-        let canvasFrame = CGRect(x: 0, y: 0, width: initialSize.width, height: initialSize.height)
+        let canvasFrame = CGRect(origin: CGPoint.zero, size: initialSize)
 
         canvasView = EJJavaScriptView(frame: canvasFrame, appFolder: "out/")
         // initially disable interaction
@@ -74,6 +100,27 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
+    }
+    
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        
+        coordinator.animate(alongsideTransition: nil, completion: {
+            _ in
+            
+            let rotatedFrame = self.calculateViewFrame()
+            
+            let oldFrame = self.canvasView.frame
+            let canvasFrame = CGRect(origin: oldFrame.origin, size: rotatedFrame.size)
+            self.canvasView.frame = canvasFrame
+            (self.canvasView.screenRenderingContext as! EJPresentable).style = canvasFrame
+            
+            self.view.frame = rotatedFrame
+            self.view.transform = CGAffineTransform.identity
+            self.view.setNeedsLayout()
+            
+            print("Transitioned view frame...")
+        })
     }
     
     func jsContext() -> JSGlobalContextRef {
@@ -174,17 +221,13 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
                 // HMM, this does not actually make the js/window or js/canvas
                 // sizes change... not quite sure how this works.
                 // maybe we need to trigger a resize event on the js context?
-                canvasView.frame = newFrame
+                self.canvasView.frame = newFrame
                 lastScale = newScale
             }
         }
         
         handleTranslate(gestureRecognizer: gestureRecognizer)
         handleShadow(gestureRecognizer: gestureRecognizer)
-        
-        if gestureRecognizer.state == .ended {
-            canvasView.layoutIfNeeded()
-        }
     }
     
 
