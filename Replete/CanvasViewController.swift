@@ -241,6 +241,10 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
     @IBAction func handlePan(_ gestureRecognizer: UIPanGestureRecognizer) {
         handleTranslate(gestureRecognizer: gestureRecognizer)
         handleShadow(gestureRecognizer: gestureRecognizer)
+        
+        if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
+            self.canvasSizeLabel.alpha = 1.0
+        }
     }
     
     @IBAction func handlePinch(_ gestureRecognizer: UIPinchGestureRecognizer) {
