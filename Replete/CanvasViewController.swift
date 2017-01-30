@@ -33,9 +33,20 @@ import UIKit
  
  */
 
+extension CGAffineTransform {
+    var xScale: Double {
+        return sqrt(Double(self.a*self.a) + Double(self.c*self.c))
+    }
+    
+    var yScale: Double {
+        return sqrt(Double(self.b*self.b) + Double(self.d*self.d))
+    }
+}
+
 class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
     
     var canvasView: EJJavaScriptView!
+    var canvasSizeLabel: UILabel!
     var lastPoint: CGPoint = CGPoint.zero
     var lastScale: CGFloat = 0.0
     // maybe the canvas should actually be the full window height
@@ -46,7 +57,10 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
     
     func calculateViewFrame() -> CGRect {
         let screenSize = UIScreen.main.bounds.size
-        initialSize = CGSize(width: screenSize.width/4, height: screenSize.height/4)
+        initialSize = CGSize(
+            width: floor(screenSize.width/4),
+            height: floor(screenSize.height/4)
+        )
         
         let viewFrame = CGRect(
             x: screenSize.width - initialSize.width - canvasMargin,
@@ -57,6 +71,17 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
         return viewFrame
     }
     
+    func updateCanvasLabel() {
+        let w = Int(canvasView.frame.size.width)
+        let h = Int(canvasView.frame.size.height)
+        canvasSizeLabel.text = "\(w)x\(h)"
+    }
+    
+    func fadeOutCanvasLabel() {
+        UIView.animate(withDuration: 1.0, delay: 2.0, options: UIViewAnimationOptions.curveEaseInOut, animations: {
+            self.canvasSizeLabel.alpha = 0.0
+        }, completion: nil)
+    }
 
     override func loadView() {
         super.loadView()
@@ -91,6 +116,24 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
         self.view.addGestureRecognizer(pinchR)
         
         self.view.addSubview(canvasView)
+        
+        let canvasSizeLabelFrame = CGRect(
+            origin: CGPoint.zero,
+            size: CGSize(
+                width: initialSize.width,
+                height: 16
+            )
+        )
+        canvasSizeLabel = UILabel(frame: canvasSizeLabelFrame)
+        canvasSizeLabel.autoresizingMask = UIViewAutoresizing.flexibleWidth
+        canvasSizeLabel.textColor = UIColor.white
+        canvasSizeLabel.textAlignment = NSTextAlignment.center
+        canvasSizeLabel.font = UIFont.systemFont(ofSize: 12)
+        canvasSizeLabel.backgroundColor = UIColor.black
+        updateCanvasLabel()
+        fadeOutCanvasLabel()
+        
+        self.view.addSubview(canvasSizeLabel)
     }
     
     override func viewDidLoad() {
@@ -100,6 +143,13 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
+    }
+    
+    func resizeCanvasContext(newCanvasFrame: CGRect) {
+        let scale = UIScreen.main.scale
+        self.canvasView.screenRenderingContext.width = Int16(newCanvasFrame.size.width*scale)
+        self.canvasView.screenRenderingContext.height = Int16(newCanvasFrame.size.height*scale)
+        (self.canvasView.screenRenderingContext as! EJPresentable).style = newCanvasFrame
     }
     
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -113,11 +163,11 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
             let oldFrame = self.canvasView.frame
             let canvasFrame = CGRect(origin: oldFrame.origin, size: rotatedFrame.size)
             self.canvasView.frame = canvasFrame
-            (self.canvasView.screenRenderingContext as! EJPresentable).style = canvasFrame
+            self.resizeCanvasContext(newCanvasFrame: canvasFrame)
             
             self.view.frame = rotatedFrame
-            self.view.transform = CGAffineTransform.identity
             self.view.setNeedsLayout()
+            self.updateCanvasLabel()
             
             print("Transitioned view frame...")
         })
@@ -173,13 +223,16 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
         if gestureRecognizer.state == .began {
             lastPoint = gestureRecognizer.location(in: self.view)
         }
-        if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
+        if gestureRecognizer.state == .changed {
             let location = gestureRecognizer.location(in: self.view)
             // note: 'view' is optional and need to be unwrapped
-            self.view.transform = self.view.transform.translatedBy(
-                x: (location.x - lastPoint.x),
-                y: (location.y - lastPoint.y)
+            let center = self.view.center
+            let newCenter = CGPoint(
+                x: center.x - (lastPoint.x - location.x),
+                y: center.y - (lastPoint.y - location.y)
             )
+            
+            self.view.center = newCenter
             lastPoint = gestureRecognizer.location(in: self.view)
         }
     }
@@ -191,12 +244,15 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
     }
     
     @IBAction func handlePinch(_ gestureRecognizer: UIPinchGestureRecognizer) {
+        handleTranslate(gestureRecognizer: gestureRecognizer)
+        handleShadow(gestureRecognizer: gestureRecognizer)
+        
         if gestureRecognizer.state == .began {
             lastScale = gestureRecognizer.scale
         }
         
         if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
-            let currentScale = CGFloat((self.view.layer.value(forKeyPath: "transform.scale") as! NSNumber))
+            let currentScale = CGFloat(self.view.frame.size.width / initialSize.width)
             let maxScale = CGFloat(3.0)
             let minScale = CGFloat(1.0)
             
@@ -206,28 +262,44 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
                 minScale/currentScale
             )
             
-            self.view.transform = self.view.transform.scaledBy(x: newScale, y: newScale)
-            
-            let newSize = self.view.frame.size.applying(
+            let newBounds = self.view.bounds.applying(
                 CGAffineTransform.init(scaleX: newScale, y: newScale)
             )
-            
-            if lastScale != newScale {
-                let oldFrame = canvasView.frame
-                let newFrame = CGRect(
-                    origin: oldFrame.origin,
-                    size: newSize
+            let flooredBounds = CGRect(
+                origin: newBounds.origin,
+                size: CGSize(
+                    width: floor(newBounds.width),
+                    height: floor(newBounds.height)
                 )
-                // HMM, this does not actually make the js/window or js/canvas
-                // sizes change... not quite sure how this works.
-                // maybe we need to trigger a resize event on the js context?
-                self.canvasView.frame = newFrame
-                lastScale = newScale
-            }
+            )
+            
+            self.view.bounds = flooredBounds
+            lastScale = newScale
+            
+            self.canvasSizeLabel.alpha = 1.0
         }
         
-        handleTranslate(gestureRecognizer: gestureRecognizer)
-        handleShadow(gestureRecognizer: gestureRecognizer)
+        let oldFrame = canvasView.frame
+        let newCanvasFrame = CGRect(
+            origin: oldFrame.origin,
+            size: self.view.bounds.size
+        )
+        
+        // HMM, this does not actually make the js/window or js/canvas
+        // sizes change... not quite sure how this works.
+        // maybe we need to trigger a resize event on the js context?
+        if gestureRecognizer.state == .changed {
+            self.canvasView.isPaused = true
+            self.canvasView.frame = newCanvasFrame
+            resizeCanvasContext(newCanvasFrame: newCanvasFrame)
+        }
+        
+        if gestureRecognizer.state == .ended {
+            self.canvasView.isPaused = false
+            self.fadeOutCanvasLabel()
+        }
+        
+        updateCanvasLabel()
     }
     
 
