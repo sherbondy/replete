@@ -43,10 +43,40 @@ extension CGAffineTransform {
     }
 }
 
+extension UIImage{
+    
+    class func imageFromSystemBarButton(systemItem: UIBarButtonSystemItem, renderingMode:UIImageRenderingMode = .alwaysTemplate)-> UIImage {
+        
+        let tempItem = UIBarButtonItem(barButtonSystemItem: systemItem, target: nil, action: nil)
+        
+        // add to toolbar and render it
+        UIToolbar().setItems([tempItem], animated: false)
+        
+        // got image from real uibutton
+        let itemView = tempItem.value(forKey: "view") as! UIView
+        
+        for view in itemView.subviews {
+            if view is UIButton {
+                let button = view as! UIButton
+                let image = button.imageView!.image!
+                image.withRenderingMode(renderingMode)
+                return image
+            }
+        }
+        
+        return UIImage()
+    }
+}
+
+
 class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
     
     var canvasView: EJJavaScriptView!
     var canvasSizeLabel: UILabel!
+    var playPauseButton: UIButton!
+    var playImage: UIImage!
+    var pauseImage: UIImage!
+    
     var lastPoint: CGPoint = CGPoint.zero
     var lastScale: CGFloat = 0.0
     // maybe the canvas should actually be the full window height
@@ -77,10 +107,41 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
         canvasSizeLabel.text = "\(w)x\(h)"
     }
     
+    func showPlayPauseButton(){
+        self.playPauseButton.isHidden = false
+        self.playPauseButton.alpha = 1.0
+    }
+    
+    func fadeOutPlayPauseButton() {
+        self.playPauseButton.isHidden = false
+
+        UIView.animate(withDuration: 1.0, delay: 2.0,
+                       options: [.curveEaseInOut, .beginFromCurrentState, .allowUserInteraction],
+                       animations: {
+            // wtf: http://stackoverflow.com/a/31102406
+            self.playPauseButton.alpha = 0.1
+        }, completion: {
+            finished in
+            self.playPauseButton.isHidden = finished
+        })
+    }
+    
+    func showCanvasLabel() {
+        self.canvasSizeLabel.isHidden = false
+        self.canvasSizeLabel.alpha = 1.0
+    }
+    
     func fadeOutCanvasLabel() {
-        UIView.animate(withDuration: 1.0, delay: 2.0, options: UIViewAnimationOptions.curveEaseInOut, animations: {
+        self.canvasSizeLabel.isHidden = false
+
+        UIView.animate(withDuration: 1.0, delay: 2.0,
+                       options: [.curveEaseInOut, .beginFromCurrentState],
+                       animations: {
             self.canvasSizeLabel.alpha = 0.0
-        }, completion: nil)
+        }, completion: {
+            finished in
+            self.canvasSizeLabel.isHidden = finished
+        })
     }
 
     override func loadView() {
@@ -104,7 +165,7 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
         
         let tapR = UILongPressGestureRecognizer.init(target: self, action: #selector(handleTap))
         tapR.minimumPressDuration = 0
-        tapR.cancelsTouchesInView = true
+        tapR.cancelsTouchesInView = false
         tapR.delegate = self
         
         let pinchR = UIPinchGestureRecognizer.init(target: self, action: #selector(handlePinch))
@@ -130,14 +191,39 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
         canvasSizeLabel.textAlignment = NSTextAlignment.center
         canvasSizeLabel.font = UIFont.systemFont(ofSize: 12)
         canvasSizeLabel.backgroundColor = UIColor.black
-        updateCanvasLabel()
-        fadeOutCanvasLabel()
-        
         self.view.addSubview(canvasSizeLabel)
+        
+        playImage = UIImage.imageFromSystemBarButton(systemItem: .play)
+        pauseImage = UIImage.imageFromSystemBarButton(systemItem: .pause)
+        
+        playPauseButton = UIButton(type: UIButtonType.system)
+        playPauseButton.frame = CGRect(
+            x: 0,
+            y: 0,
+            width: 40,
+            height: 40
+        )
+        
+        playPauseButton.layer.cornerRadius = 20
+        playPauseButton.layer.borderColor = UIColor.white.cgColor
+        playPauseButton.layer.borderWidth = 2
+        playPauseButton.tintColor = UIColor.white
+        playPauseButton.backgroundColor = UIColor.init(colorLiteralRed: 0, green: 0, blue: 0, alpha: 0.5)
+        playPauseButton.center = canvasView.center
+        playPauseButton.showsTouchWhenHighlighted = true
+        
+        playPauseButton.addTarget(self, action: #selector(handleClickPlayPause), for: .touchUpInside)
+        setPlayPauseImage()
+
+        self.view.addSubview(playPauseButton)
     }
     
     override func viewDidLoad() {
         canvasView.loadScript(atPath: "index.js")
+        
+        updateCanvasLabel()
+        fadeOutCanvasLabel()
+        fadeOutPlayPauseButton()
     }
 
     override func didReceiveMemoryWarning() {
@@ -150,6 +236,8 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
         self.canvasView.screenRenderingContext.width = Int16(round(newCanvasFrame.size.width*scale))
         self.canvasView.screenRenderingContext.height = Int16(round(newCanvasFrame.size.height*scale))
         (self.canvasView.screenRenderingContext as! EJPresentable).style = newCanvasFrame
+        
+        playPauseButton.center = self.canvasView.center
     }
     
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -192,6 +280,9 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
     }
     
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        if touch.view is UIControl {
+            return false
+        }
         return true
     }
     
@@ -215,8 +306,43 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
         }
     }
     
+    func handlePlayPauseButton(gestureRecognizer: UIGestureRecognizer) {
+        if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
+            showPlayPauseButton()
+        }
+        if gestureRecognizer.state == .ended {
+            fadeOutPlayPauseButton()
+        }
+    }
+    
+    func handleCanvasSizeLabel(gestureRecognizer: UIGestureRecognizer) {
+        if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
+            showCanvasLabel()
+        }
+        
+        if gestureRecognizer.state == .ended {
+            fadeOutCanvasLabel()
+        }
+    }
+    
+    func setPlayPauseImage(){
+        if (self.canvasView.isPaused) {
+            self.playPauseButton.setImage(playImage, for: UIControlState.normal)
+        } else {
+            self.playPauseButton.setImage(pauseImage, for: UIControlState.normal)
+        }
+    }
+    
+    @IBAction func handleClickPlayPause(_ sender: UIButton) {
+        self.canvasView.isPaused = !self.canvasView.isPaused
+        setPlayPauseImage()
+        showPlayPauseButton()
+    }
+    
     @IBAction func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
         handleShadow(gestureRecognizer: gestureRecognizer)
+        handleCanvasSizeLabel(gestureRecognizer: gestureRecognizer)
+        handlePlayPauseButton(gestureRecognizer: gestureRecognizer)
     }
     
     func handleTranslate(gestureRecognizer: UIGestureRecognizer) {
@@ -236,27 +362,20 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
             lastPoint = gestureRecognizer.location(in: self.view)
         }
     }
-    
-    func handleCanvasSizeLabel(gestureRecognizer: UIGestureRecognizer) {
-        if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
-            self.canvasSizeLabel.alpha = 1.0
-        }
-        
-        if gestureRecognizer.state == .ended {
-            self.fadeOutCanvasLabel()
-        }
-    }
 
     
     @IBAction func handlePan(_ gestureRecognizer: UIPanGestureRecognizer) {
         handleTranslate(gestureRecognizer: gestureRecognizer)
         handleShadow(gestureRecognizer: gestureRecognizer)
         handleCanvasSizeLabel(gestureRecognizer: gestureRecognizer)
+        handlePlayPauseButton(gestureRecognizer: gestureRecognizer)
+
     }
     
     @IBAction func handlePinch(_ gestureRecognizer: UIPinchGestureRecognizer) {
         handleTranslate(gestureRecognizer: gestureRecognizer)
         handleShadow(gestureRecognizer: gestureRecognizer)
+        handlePlayPauseButton(gestureRecognizer: gestureRecognizer)
         
         if gestureRecognizer.state == .began {
             lastScale = gestureRecognizer.scale
@@ -308,6 +427,7 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
         }
         
         updateCanvasLabel()
+        setPlayPauseImage()
         handleCanvasSizeLabel(gestureRecognizer: gestureRecognizer)
     }
     
