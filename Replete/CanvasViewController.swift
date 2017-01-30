@@ -236,15 +236,22 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
             lastPoint = gestureRecognizer.location(in: self.view)
         }
     }
+    
+    func handleCanvasSizeLabel(gestureRecognizer: UIGestureRecognizer) {
+        if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
+            self.canvasSizeLabel.alpha = 1.0
+        }
+        
+        if gestureRecognizer.state == .ended {
+            self.fadeOutCanvasLabel()
+        }
+    }
 
     
     @IBAction func handlePan(_ gestureRecognizer: UIPanGestureRecognizer) {
         handleTranslate(gestureRecognizer: gestureRecognizer)
         handleShadow(gestureRecognizer: gestureRecognizer)
-        
-        if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
-            self.canvasSizeLabel.alpha = 1.0
-        }
+        handleCanvasSizeLabel(gestureRecognizer: gestureRecognizer)
     }
     
     @IBAction func handlePinch(_ gestureRecognizer: UIPinchGestureRecognizer) {
@@ -279,8 +286,6 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
             
             self.view.bounds = roundedBounds
             lastScale = newScale
-            
-            self.canvasSizeLabel.alpha = 1.0
         }
         
         let oldFrame = canvasView.frame
@@ -300,10 +305,10 @@ class CanvasViewController: UIViewController, UIGestureRecognizerDelegate {
         
         if gestureRecognizer.state == .ended {
             self.canvasView.isPaused = false
-            self.fadeOutCanvasLabel()
         }
         
         updateCanvasLabel()
+        handleCanvasSizeLabel(gestureRecognizer: gestureRecognizer)
     }
     
 
