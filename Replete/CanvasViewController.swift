@@ -31,6 +31,24 @@ import UIKit
  Also want to allow possibility for rendering exclusively
  to external display in airplay mode by default?
  
+ Should have custom REPL command to output a screenshot of the canvas
+ to the replete table.
+ 
+ Alternatively, should make it so whenever we request the js/canvas
+ object from replete, it returns a screenshot.
+ 
+ Double-tap gesture to enter fullscreen mode.
+ Show banner indicating gesture to escape fullscreen, e.g.
+ 4-finger long-press or something.
+ 
+ Fullscreen mode:
+ - Make canvas view first responder
+ - Allow user interaction
+ 
+ Could consider alternative mode with transparent keyboard and repl output
+ floating in front of canvas. Have seen this used to delightful effect
+ in the context of shader programming.
+ 
  */
 
 extension CGAffineTransform {
